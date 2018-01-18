@@ -172,6 +172,7 @@ class SublimeHighlightCommand(sublime_plugin.TextCommand):
                 winclip.Paste(pygmented, output_type, plaintext)
             else:
                 sublime.set_clipboard(pygmented)
+                self._copy_with_xclip(output_type, pygmented)
         elif target == 'sublime':
             new_view = self.view.window().new_file()
             if output_type == 'html':
@@ -179,6 +180,19 @@ class SublimeHighlightCommand(sublime_plugin.TextCommand):
             new_view.run_command("open_highlight", {'content': pygmented})
         else:
             sublime.error_message('Unsupported target "%s"' % target)
+
+    def _copy_with_xclip(self, output_type, pygmented):
+        """Copy to X clipboard through 'xclip'. Linux only"""
+        have_xclip = subprocess.call(["which", "xclip"], stdout=subprocess.DEVNULL) == 0
+        if not have_xclip:
+            sublime.message_dialog("Please install 'xclip' to get colored text clipboard!")
+            return
+        mimetype = {'rtf': 'text/rtf', 'html': 'text/html'}[output_type]
+        copy_command = ["xclip", "-selection", "clipboard", "-t", mimetype]
+        copy_proc = subprocess.Popen(copy_command, stdin=subprocess.PIPE)
+        copy_proc.stdin.write(pygmented.encode(self.encoding))
+        copy_proc.stdin.close()
+        copy_proc.wait()
 
     def write_file(self, filename, contents, encoding=None):
         """Writes highlighted contents onto the filesystem."""
